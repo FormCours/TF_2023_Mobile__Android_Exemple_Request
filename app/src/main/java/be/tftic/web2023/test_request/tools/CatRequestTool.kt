@@ -2,6 +2,7 @@ package be.tftic.web2023.test_request.tools
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import be.tftic.web2023.test_request.R
 import be.tftic.web2023.test_request.models.Cat
 import com.google.gson.Gson
@@ -14,6 +15,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 const val BASE_SEARCH_URL = "https://api.thecatapi.com/v1/images/search"
+const val BASE_FETCH_URL = "https://api.thecatapi.com/v1/images/"
 
 /**
  * Tool pour faire des requetes sur la Cat API
@@ -23,8 +25,8 @@ class CatRequestTool(private val context : Context, private val scope: Coroutine
     /**
      * Listener pour transmettre la réponse de la requete
      */
-    interface OnResponseListener {
-        fun onRequestResponseSuccess(result: List<Cat>)
+    interface OnResponseListener <T> {
+        fun <T> onRequestResponseSuccess(result: T)
         fun onRequestResponseError(message: String?)
     }
 
@@ -33,7 +35,7 @@ class CatRequestTool(private val context : Context, private val scope: Coroutine
      * Fonction qui permet de cherche des chats par races
      * @param breed Race recherché
      */
-    fun searchByBreed(breed: String, responseListener: OnResponseListener) {
+    fun searchByBreed(breed: String, responseListener: OnResponseListener<List<Cat>>) {
         scope.launch {
 
             // Création de l'url avec des parametres (sans faire de concaténation)
@@ -71,6 +73,64 @@ class CatRequestTool(private val context : Context, private val scope: Coroutine
                     // Conversion du resultat "JSON" en objet Kotlin (Exemple : Une liste de "chat")
                     val typeToken = object : TypeToken<List<Cat>>() {}.type
                     val result = Gson().fromJson<List<Cat>>(json, typeToken)
+
+                    // -> Déclanchement du Listener "Success"
+                    withContext(Dispatchers.Main) {
+                        responseListener.onRequestResponseSuccess(result)
+                    }
+
+                } catch (error: Exception) {
+                    // -> Déclanchement du Listener "Error"
+                    withContext(Dispatchers.Main) {
+                        responseListener.onRequestResponseError(error.message)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Fonction qui permet d'obtenir les infos d'in chat
+     * @param catId L'id du chat
+     */
+    fun searchById(catId : String, responseListener: OnResponseListener<Cat>) {
+        scope.launch {
+
+            // Création de l'url avec des parametres (sans faire de concaténation)
+            val urlBuilder = Uri.parse(BASE_FETCH_URL).buildUpon().apply {
+                appendPath(catId)
+                appendQueryParameter("api_key", context.getString(R.string.api_cat_key))
+            }
+            val url = URL(urlBuilder.build().toString())
+            Log.d("TEST_TEST", url.toString())
+
+            // Passage dans en "thread" IO
+            withContext(Dispatchers.IO) {
+
+                // Ouverture de la connexion
+                val connection = url.openConnection() as? HttpURLConnection
+
+                // Si l'ouverture de la connection à échoué -> Déclanchement du Listener "error"
+                if (connection == null) {
+                    withContext(Dispatchers.Main) {
+                        responseListener.onRequestResponseError("Connection not open")
+                    }
+                    return@withContext
+                }
+
+                try {
+                    // Execution de la requete
+                    val json = connection.run {
+                        requestMethod = "GET"
+                        setRequestProperty("content-type", "application/json; charset=utf-8")
+                        doInput = true
+
+                        return@run inputStream.bufferedReader().lineSequence().joinToString("\n")
+                    }
+
+                    // Conversion du resultat "JSON" en objet Kotlin (Exemple : Un objet de "Chat")
+                    val typeToken = Cat::class.java
+                    val result = Gson().fromJson<Cat>(json, typeToken)
 
                     // -> Déclanchement du Listener "Success"
                     withContext(Dispatchers.Main) {
