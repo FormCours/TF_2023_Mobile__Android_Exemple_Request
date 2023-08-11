@@ -14,9 +14,6 @@ import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
 
-const val BASE_SEARCH_URL = "https://api.thecatapi.com/v1/images/search"
-const val BASE_FETCH_URL = "https://api.thecatapi.com/v1/images/"
-
 /**
  * Tool pour faire des requetes sur la Cat API
  */
@@ -36,13 +33,16 @@ class CatRequestTool(private val context : Context, private val scope: Coroutine
      * @param breed Race recherché
      */
     fun searchByBreed(breed: String, responseListener: OnResponseListener<List<Cat>>) {
+        val SEARCH_URL = context.getString(R.string.url_cat_search)
+        val API_KEY = context.getString(R.string.api_cat_key)
+
         scope.launch {
 
             // Création de l'url avec des parametres (sans faire de concaténation)
-            val urlBuilder = Uri.parse(BASE_SEARCH_URL).buildUpon().apply {
+            val urlBuilder = Uri.parse(SEARCH_URL).buildUpon().apply {
                 appendQueryParameter("limit", "10")
                 appendQueryParameter("breed_ids", breed)
-                appendQueryParameter("api_key", context.getString(R.string.api_cat_key))
+                appendQueryParameter("api_key", API_KEY)
             }
             val url = URL(urlBuilder.build().toString())
 
@@ -94,12 +94,15 @@ class CatRequestTool(private val context : Context, private val scope: Coroutine
      * @param catId L'id du chat
      */
     fun searchById(catId : String, responseListener: OnResponseListener<Cat>) {
+        val FETCH_URL = context.getString(R.string.url_cat_fetch)
+        val API_KEY = context.getString(R.string.api_cat_key)
+
         scope.launch {
 
             // Création de l'url avec des parametres (sans faire de concaténation)
-            val urlBuilder = Uri.parse(BASE_FETCH_URL).buildUpon().apply {
+            val urlBuilder = Uri.parse(FETCH_URL).buildUpon().apply {
                 appendPath(catId)
-                appendQueryParameter("api_key", context.getString(R.string.api_cat_key))
+                appendQueryParameter("api_key", API_KEY)
             }
             val url = URL(urlBuilder.build().toString())
             Log.d("TEST_TEST", url.toString())
